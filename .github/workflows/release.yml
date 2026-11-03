@@ -1,0 +1,235 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version increment
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare-release:
+    name: Prepare release tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+
+    steps:
+      - name: Check out source and tags
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Create or validate release tag
+        id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUMP: ${{ inputs.bump }}
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          REF: ${{ github.ref }}
+          SHA: ${{ github.sha }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            if [[ "$REF" != "refs/heads/main" ]]; then
+              echo "Run the release workflow from the main branch." >&2
+              exit 1
+            fi
+
+            CURRENT_TAG=$(git tag --list 'v[0-9]*' --sort=-version:refname | sed -n '1p')
+            if [[ -n "$CURRENT_TAG" ]]; then
+              if [[ ! "$CURRENT_TAG" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+                echo "Latest version tag is not valid semver: $CURRENT_TAG" >&2
+                exit 1
+              fi
+              MAJOR=${BASH_REMATCH[1]}
+              MINOR=${BASH_REMATCH[2]}
+              PATCH=${BASH_REMATCH[3]}
+            else
+              CURRENT_VERSION=$(sed -n 's/^[[:space:]]*MACMATE_VERSION = \([0-9][0-9.]*\);$/\1/p' MacMate.xcodeproj/project.pbxproj | head -n 1)
+              if [[ ! "$CURRENT_VERSION" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+                echo "Could not read the initial semantic version from the Xcode project." >&2
+                exit 1
+              fi
+              MAJOR=${BASH_REMATCH[1]}
+              MINOR=${BASH_REMATCH[2]}
+              PATCH=${BASH_REMATCH[3]}
+            fi
+
+            case "$BUMP" in
+              major)
+                MAJOR=$((MAJOR + 1))
+                MINOR=0
+                PATCH=0
+                ;;
+              minor)
+                MINOR=$((MINOR + 1))
+                PATCH=0
+                ;;
+              patch)
+                PATCH=$((PATCH + 1))
+                ;;
+              *)
+                echo "Unsupported version increment: $BUMP" >&2
+                exit 1
+                ;;
+            esac
+
+            TAG="v$MAJOR.$MINOR.$PATCH"
+            gh api --method POST "repos/$REPOSITORY/git/refs" \
+              -f "ref=refs/tags/$TAG" \
+              -f "sha=$SHA"
+          else
+            TAG="$REF_NAME"
+            if [[ ! "$TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+              echo "Tag must use the form vX.Y.Z (for example v1.2.3)." >&2
+              exit 1
+            fi
+          fi
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+  build-and-release:
+    name: Build and publish release
+    needs: prepare-release
+    runs-on: macos-15
+    timeout-minutes: 60
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out tagged commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare-release.outputs.tag }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Validate release tag
+        id: version
+        env:
+          TAG: ${{ needs.prepare-release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            echo "Tag must use the form vX.Y.Z (for example v1.2.3)." >&2
+            exit 1
+          fi
+          echo "version=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Build universal Release app with ad-hoc signing
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          DERIVED_DATA="$RUNNER_TEMP/DerivedData"
+          BUILD_NUMBER="$GITHUB_RUN_NUMBER"
+
+          xcodebuild \
+            -project MacMate.xcodeproj \
+            -scheme MacMate \
+            -configuration Release \
+            -destination 'platform=macOS' \
+            -derivedDataPath "$DERIVED_DATA" \
+            MARKETING_VERSION="$VERSION" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            DEVELOPMENT_TEAM= \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY=- \
+            CODE_SIGNING_REQUIRED=YES \
+            CODE_SIGNING_ALLOWED=YES \
+            ARCHS="arm64 x86_64" \
+            ONLY_ACTIVE_ARCH=NO \
+            clean build
+
+          APP_PATH="$DERIVED_DATA/Build/Products/Release/MacMate.app"
+          if [[ ! -d "$APP_PATH" ]]; then
+            echo "Expected app bundle was not produced: $APP_PATH" >&2
+            exit 1
+          fi
+
+          INFO_PLIST="$APP_PATH/Contents/Info.plist"
+          ACTUAL_VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$INFO_PLIST")
+          BUILD_VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$INFO_PLIST")
+          BUNDLE_ID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$INFO_PLIST")
+
+          if [[ "$ACTUAL_VERSION" != "$VERSION" ]]; then
+            echo "App version $ACTUAL_VERSION does not match tag version $VERSION." >&2
+            exit 1
+          fi
+          if [[ "$BUILD_VERSION" != "$BUILD_NUMBER" ]]; then
+            echo "App build version $BUILD_VERSION does not match build number $BUILD_NUMBER." >&2
+            exit 1
+          fi
+          if [[ "$BUNDLE_ID" != "com.app.MacMate" ]]; then
+            echo "Unexpected bundle identifier: $BUNDLE_ID" >&2
+            exit 1
+          fi
+
+          codesign --verify --deep --strict "$APP_PATH"
+          lipo "$APP_PATH/Contents/MacOS/MacMate" -verify_arch arm64 x86_64
+          echo "Verified MacMate $ACTUAL_VERSION ($BUILD_VERSION), bundle $BUNDLE_ID."
+
+          echo "APP_PATH=$APP_PATH" >> "$GITHUB_ENV"
+
+      - name: Package app only
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          RELEASE_DIR="$RUNNER_TEMP/release"
+          mkdir -p "$RELEASE_DIR"
+          RELEASE_ZIP="$RELEASE_DIR/MacMate-$VERSION.zip"
+          ditto -c -k --keepParent "$APP_PATH" "$RELEASE_ZIP"
+          test -s "$RELEASE_ZIP"
+
+          python3 - "$RELEASE_ZIP" <<'PY'
+          import sys
+          import zipfile
+
+          with zipfile.ZipFile(sys.argv[1]) as archive:
+              files = [name for name in archive.namelist() if not name.endswith("/")]
+              if not files or any(not name.startswith("MacMate.app/") for name in files):
+                  raise SystemExit("Release ZIP must contain only MacMate.app.")
+              if "MacMate.app/Contents/Info.plist" not in files:
+                  raise SystemExit("Release ZIP does not contain MacMate.app/Contents/Info.plist.")
+          PY
+
+          echo "RELEASE_ZIP=$RELEASE_ZIP" >> "$GITHUB_ENV"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare-release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" "$RELEASE_ZIP" \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --title "MacMate $TAG" \
+            --notes "Để cài đặt, hãy tải asset MacMate-${TAG#v}.zip trong mục Assets. Không tải các mục Source code vì đó là mã nguồn, không phải ứng dụng." \
+            --generate-notes

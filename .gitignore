@@ -1,0 +1,64 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor temporary files
+*.swp
+*.swo
+*~
+*.xcuserdatad/
+*.xcscmblueprint
+
+# Local secrets and signing material
+.env
+.env.*
+!.env.example
+Secrets.xcconfig
+*.p12
+*.pfx
+*.cer
+*.crt
+*.pem
+*.key
+*.mobileprovision
+*.provisionprofile
+
+# Xcode
+build/
+DerivedData/
+xcuserdata/
+*.xcuserstate
+*.xccheckout
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM/
+*.xcarchive/
+
+# Local logs
+*.log
+
+# Local release artifacts
+*.app
+*.dmg
+*.pkg
+*.zip
+Build/
+dist/
+artifacts/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Project notes (not needed to build or run the app)
+/MIGRATION_PLAN.md
+/IMPLEMENTATION_PLAN.md
+/PHAT_HANH.md
+/MACMATE_FEATURES_AND_OPTIMIZATIONS.md
+/AGENTS.md
+**/AGENTS.md
+*.agent.md
+*.instructions.md
+*.prompt.md
