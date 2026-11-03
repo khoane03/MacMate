@@ -151,6 +151,7 @@ struct TopTabBar: View {
         HStack(spacing: 4) {
             tabButton(index: 0, title: "Pin & Phần cứng", icon: "shield.checkered")
             tabButton(index: 1, title: "Tính năng", icon: "square.grid.2x2")
+            tabButton(index: 2, title: "Dọn dẹp", icon: "sparkles")
         }
         .padding(3)
         .background(RoundedRectangle(cornerRadius: 11, style: .continuous).fill(Color.primary.opacity(0.055)))
