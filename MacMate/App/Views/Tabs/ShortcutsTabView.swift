@@ -145,7 +145,7 @@ struct ShortcutsTabView: View {
                             .foregroundStyle(Color.accentColor)
 
                         VStack(alignment: .leading, spacing: 1) {
-                            Text("Chia cửa sổ & Đa màn hình (Rectangle)")
+                            Text("Chia cửa sổ & Đa màn hình")
                                 .font(.system(size: 11.5, weight: .bold))
                             Text("Bố trí cửa sổ nhanh với độ trễ 0ms")
                                 .font(.system(size: 9))
@@ -182,7 +182,7 @@ struct ShortcutsTabView: View {
                             .foregroundStyle(Color.accentColor)
 
                         VStack(alignment: .leading, spacing: 1) {
-                            Text("Quản lý Clipboard (Thay thế Maccy)")
+                            Text("Quản lý Clipboard")
                                 .font(.system(size: 11.5, weight: .bold))
                             Text("Lịch sử sao chép thông minh, tìm kiếm & dán tức thì")
                                 .font(.system(size: 9))

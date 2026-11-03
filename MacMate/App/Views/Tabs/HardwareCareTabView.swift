@@ -336,9 +336,9 @@ struct BatteryCardView: View {
             HStack(spacing: 8) {
                 Image(systemName: "lock.shield").font(.system(size: 11)).foregroundStyle(Color.accentColor)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("Khóa sạc ở \(batteryManager.chargeLimit)% (Chạy điện trực tiếp)")
+                    Text("Giới hạn sạc ở \(batteryManager.chargeLimit)%")
                         .font(.system(size: 10, weight: .semibold))
-                    Text("Cắm sạc liên tục không chai pin (SMC Bypass)")
+                    Text("Chỉ xác nhận đã khoá khi pin thực sự ngừng sạc")
                         .font(.system(size: 7.5)).foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -349,6 +349,30 @@ struct BatteryCardView: View {
                 .toggleStyle(.switch)
                 .controlSize(.mini)
                 .labelsHidden()
+            }
+
+            if !batteryManager.isHelperInstalled {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                    Text("Công cụ điều khiển sạc chưa sẵn sàng. Ngưỡng hiện chưa có hiệu lực.")
+                        .font(.system(size: 8.5))
+                    Spacer(minLength: 4)
+                    Button(batteryManager.isInstallingHelper ? "Đang cài..." : "Cài công cụ") {
+                        batteryManager.installHelper()
+                    }
+                    .disabled(batteryManager.isInstallingHelper)
+                    .controlSize(.mini)
+                }
+                .font(.system(size: 9))
+            } else {
+                HStack(spacing: 5) {
+                    Image(systemName: batteryManager.isBypassActive ? "checkmark.shield.fill" : "info.circle")
+                        .foregroundStyle(batteryManager.isBypassActive ? .green : .orange)
+                    Text(batteryManager.statusMessage)
+                        .font(.system(size: 8.5))
+                        .foregroundStyle(.secondary)
+                }
             }
 
             if batteryManager.isProtectionEnabled {

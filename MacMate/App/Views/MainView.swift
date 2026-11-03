@@ -10,7 +10,7 @@ public struct MainView: View {
     @ObservedObject private var thermalManager = ThermalManager.shared
 
     public init(initialTab: Int = 0) {
-        _selectedTab = State(initialValue: min(max(initialTab, 0), 1))
+        _selectedTab = State(initialValue: min(max(initialTab, 0), 2))
     }
 
     public var body: some View {
@@ -35,12 +35,14 @@ public struct MainView: View {
                             batteryManager: batteryManager,
                             thermalManager: thermalManager
                         )
-                    } else {
+                    } else if selectedTab == 1 {
                         ShortcutsTabView(
                             snapManager: snapManager,
                             windowManager: windowManager,
                             clipboardManager: clipboardManager
                         )
+                    } else {
+                        CleanerTabView()
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -171,6 +171,8 @@ public class BatteryManager: ObservableObject {
     private var powerNotifier: io_object_t = 0
     private var batteryPollTimer: Timer?
     private var isPopoverVisible = false
+    private let powerControlQueue = DispatchQueue(label: "MacMate.BatteryPowerControl", qos: .utility)
+    private var powerRequestID = 0
 
     private init() {
         // Load preferences
@@ -366,9 +368,11 @@ public class BatteryManager: ObservableObject {
         isPopoverVisible = visible
         if visible {
             refreshBatteryInfo()
+            checkSMCBypassStatus()
             batteryPollTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
                 Task { @MainActor [weak self] in
                     self?.refreshBatteryInfo()
+                    self?.checkSMCBypassStatus()
                 }
             }
         } else {
@@ -563,30 +567,40 @@ public class BatteryManager: ObservableObject {
             let (out, code) = shell("sudo -n /usr/local/bin/displaycontrol-power status")
             DispatchQueue.main.async {
                 if code == 0 {
-                    let isBypassed: Bool
-                    if out.contains("CHTE") {
-                        isBypassed = out.contains("01 00 00 00") || out.contains("bytes 01 00 00 00")
-                    } else if out.contains("BCLM"),
-                              let byteText = out.range(of: #"(?i)bytes\s+([0-9a-f]{2})"#, options: .regularExpression).map({ String(out[$0]).split(separator: " ").last }),
-                              let byteText,
-                              let value = Int(byteText, radix: 16) {
-                        isBypassed = value < 100
-                    } else {
-                        isBypassed = false
+                    let limitApplied = Self.isChargeLimitApplied(out, expectedLimit: self.chargeLimit)
+                    self.isBypassActive = limitApplied && self.isPluggedIn && !self.isCharging && self.currentLevel >= self.chargeLimit
+                    if self.isProtectionEnabled && !self.isTopUpActive &&
+                        (self.calibrationState == .idle || self.calibrationState == .completed) &&
+                        self.isPluggedIn && self.currentLevel >= self.chargeLimit {
+                        self.statusMessage = self.isBypassActive
+                            ? "Đã khoá sạc ở \(self.chargeLimit)%"
+                            : (limitApplied
+                                ? "Đã đặt ngưỡng nhưng pin vẫn đang sạc; hãy kiểm tra lại sau ít phút"
+                                : "Chưa khoá được sạc; kiểm tra công cụ điều khiển SMC")
                     }
-                    self.isBypassActive = isBypassed
                 } else {
+                    self.isBypassActive = false
+                    self.statusMessage = "Không đọc được trạng thái khoá sạc từ SMC"
                     appLog("⚠️ BatteryManager: không đọc được trạng thái SMC (mã \(code)): \(out)")
                 }
             }
         }
     }
 
+    private nonisolated static func isChargeLimitApplied(_ output: String, expectedLimit: Int) -> Bool {
+        guard let bytes = output.components(separatedBy: "bytes ").last else { return false }
+        if output.contains("CHTE") {
+            return bytes.lowercased().hasPrefix("01 00 00 00")
+        }
+        guard output.contains("BCLM"), let value = Int(bytes.prefix(2), radix: 16) else { return false }
+        return value == expectedLimit
+    }
+
     // MARK: - Power & Limiter Evaluation
 
     public func evaluatePowerManagement() {
         guard isHelperInstalled else {
-            statusMessage = "Cần cấp quyền để kích hoạt bảo vệ nguồn SMC"
+            statusMessage = "Cần cài công cụ điều khiển sạc để áp dụng ngưỡng \(chargeLimit)%"
             return
         }
 
@@ -664,7 +678,9 @@ public class BatteryManager: ObservableObject {
         if isProtectionEnabled {
             if currentLevel >= chargeLimit {
                 setChargingInhibited(true)
-                statusMessage = "🛡️ Nguồn AC trực tiếp (Đã khóa \(chargeLimit)% chống chai pin)"
+                statusMessage = isBypassActive
+                    ? "Đã khoá sạc ở \(chargeLimit)%"
+                    : "Đang áp dụng ngưỡng \(chargeLimit)%..."
             } else if currentLevel <= max(10, chargeLimit - 3) {
                 setChargingInhibited(false)
                 statusMessage = "⚡️ Đang sạc bù lên \(chargeLimit)% (\(currentLevel)%)"
@@ -686,11 +702,31 @@ public class BatteryManager: ObservableObject {
     public func setChargingInhibited(_ inhibit: Bool) {
         guard isHelperInstalled else { return }
         let action = inhibit ? "charge-off \(chargeLimit)" : "charge-on"
-        DispatchQueue.global(qos: .utility).async {
-            let (_, code) = shell("sudo -n /usr/local/bin/displaycontrol-power \(action)")
+        let requestedLimit = chargeLimit
+        powerRequestID += 1
+        let requestID = powerRequestID
+        powerControlQueue.async {
+            let isCurrent = DispatchQueue.main.sync { self.powerRequestID == requestID }
+            guard isCurrent else { return }
+            let (output, code) = shell("sudo -n /usr/local/bin/displaycontrol-power \(action)")
+            let (readback, readCode) = code == 0
+                ? shell("sudo -n /usr/local/bin/displaycontrol-power status")
+                : ("", Int32(-1))
+            let applied = readCode == 0 && Self.isChargeLimitApplied(readback, expectedLimit: requestedLimit)
             DispatchQueue.main.async {
-                if code == 0 {
-                    self.isBypassActive = inhibit
+                guard self.powerRequestID == requestID else { return }
+                if code != 0 || readCode != 0 || (inhibit && !applied) {
+                    self.isBypassActive = false
+                    self.statusMessage = "Không áp dụng được ngưỡng sạc; kiểm tra công cụ SMC"
+                    appLog("⚠️ BatteryManager: lệnh khoá sạc thất bại: \(output), mã \(code), đọc lại: \(readback)")
+                } else {
+                    self.refreshBatteryInfo()
+                    self.isBypassActive = inhibit && applied && self.isPluggedIn && !self.isCharging && self.currentLevel >= requestedLimit
+                    if inhibit && !self.isBypassActive {
+                        self.statusMessage = "Đã đặt ngưỡng nhưng pin vẫn đang sạc; hãy kiểm tra lại sau ít phút"
+                    } else if inhibit {
+                        self.statusMessage = "Đã khoá sạc ở \(requestedLimit)%"
+                    }
                 }
             }
         }
@@ -792,12 +828,17 @@ public class BatteryManager: ObservableObject {
         let exists = FileManager.default.fileExists(atPath: "/usr/local/bin/displaycontrol-power")
         if !exists {
             self.isHelperInstalled = false
+            self.statusMessage = "Chưa cài công cụ điều khiển sạc"
             return
         }
         DispatchQueue.global(qos: .utility).async {
             let (_, code) = shell("sudo -n /usr/local/bin/displaycontrol-power status")
             DispatchQueue.main.async {
                 self.isHelperInstalled = (code == 0)
+                if code != 0 {
+                    self.statusMessage = "Công cụ điều khiển sạc chưa sẵn sàng; cần cài lại"
+                }
+                self.evaluatePowerManagement()
             }
         }
     }
@@ -841,6 +882,8 @@ public class BatteryManager: ObservableObject {
                 self.isHelperInstalled = success
                 if success {
                     self.evaluatePowerManagement()
+                } else {
+                    self.statusMessage = "Không cài được công cụ điều khiển sạc; pin chưa được khoá"
                 }
                 completion?(success)
             }
