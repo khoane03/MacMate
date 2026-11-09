@@ -4,7 +4,7 @@ import AppKit
 // MARK: - App Delegate
 
 @MainActor
-class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var popover: NSPopover!
     private var previewWindow: NSWindow?
@@ -23,7 +23,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         let pop = NSPopover()
         pop.contentSize = NSSize(width: 380, height: 570)
         pop.behavior = .transient
-        pop.delegate = self
         let hostingController = NSHostingController(rootView: MainView())
         hostingController.sizingOptions = []
         pop.contentViewController = hostingController
@@ -42,22 +41,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             button.target = self
         }
 
-        // Thermal menu bar metrics
-        ThermalManager.shared.onMenuBarUpdate = { [weak self] text in
-            guard let button = self?.statusItem.button else { return }
-            if let text = text, !text.isEmpty {
-                button.title = " \(text)"
-                button.imagePosition = .imageLeading
-            } else {
-                button.title = ""
-                button.imagePosition = .imageOnly
-            }
-        }
-        ThermalManager.shared.updateMenuBarDisplay()
-
-        // Tự khôi phục quyền Accessibility nếu vừa update làm mất quyền
-        AccessibilityRecovery.handleLaunch()
-
         // Start global shortcuts and the external mouse-wheel engine.
         _ = SmoothScrollManager.shared
         _ = ShortcutManager.shared
@@ -65,14 +48,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
         // Eagerly initialize Clipboard Manager
         _ = ClipboardManager.shared
-
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         SmoothScrollManager.shared.stopMotion()
-        BatteryManager.shared.setPopoverVisible(false)
-        ThermalManager.shared.setPopoverVisible(false)
-        ProcessEnergyManager.shared.setPopoverVisible(false)
         KeyInterceptor.shared.stop()
         if popover != nil {
             ClipboardManager.shared.flushPendingSave()
@@ -80,11 +59,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     /// Cửa sổ xem trước UI khi đặt `MACMATE_PREVIEW=1` (dùng để chụp/kiểm tra layout).
-    /// `MACMATE_PREVIEW_TAB=0|1` chọn tab, mặc định 0 (Pin & Phần cứng).
     /// `MACMATE_PREVIEW_OUT=/path.png` render thẳng ra PNG (không cần quyền chụp màn hình).
     private func showPreviewWindow() {
-        let tab = Int(ProcessInfo.processInfo.environment["MACMATE_PREVIEW_TAB"] ?? "") ?? 0
-        let view = MainView(initialTab: tab)
+        let view = MainView()
             .frame(width: 380, height: 570)
 
         if let out = ProcessInfo.processInfo.environment["MACMATE_PREVIEW_OUT"], !out.isEmpty {
@@ -123,18 +100,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             popover.contentViewController?.view.window?.makeKey()
         }
-    }
-
-    func popoverDidShow(_ notification: Notification) {
-        BatteryManager.shared.setPopoverVisible(true)
-        ThermalManager.shared.setPopoverVisible(true)
-        ProcessEnergyManager.shared.setPopoverVisible(true)
-    }
-
-    func popoverDidClose(_ notification: Notification) {
-        BatteryManager.shared.setPopoverVisible(false)
-        ThermalManager.shared.setPopoverVisible(false)
-        ProcessEnergyManager.shared.setPopoverVisible(false)
     }
 }
 

@@ -125,13 +125,14 @@ final class SmoothScrollEngine: @unchecked Sendable {
 
     func configure(enabled: Bool, reverse: Bool, speed: Double, smoothness: Double) {
         configurationLock.lock()
+        let directionChanged = self.reverse != reverse
         self.enabled = enabled
         self.reverse = reverse
         self.speed = min(max(speed, 0.5), 3.0)
         self.smoothness = min(max(smoothness, 0.0), 1.0)
         configurationLock.unlock()
 
-        if !enabled {
+        if !enabled || directionChanged {
             stopMotion()
         }
     }

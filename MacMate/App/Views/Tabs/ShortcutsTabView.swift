@@ -1,469 +1,379 @@
 import SwiftUI
 
-// MARK: - TAB 2: Features & Controls View
-
 struct ShortcutsTabView: View {
-    @ObservedObject var snapManager: WindowSnapManager
-    @ObservedObject var windowManager: WindowManager
-    @ObservedObject var clipboardManager: ClipboardManager
-    @ObservedObject var keyInterceptor: KeyInterceptor = KeyInterceptor.shared
-    @ObservedObject private var shortcutManager = ShortcutManager.shared
-    @ObservedObject private var smoothScrollManager = SmoothScrollManager.shared
+    let snapManager: WindowSnapManager
+    let windowManager: WindowManager
+    let clipboardManager: ClipboardManager
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
-            LazyVStack(spacing: 12) {
-                // Accessibility Alert if not granted
-                if !keyInterceptor.hasAccessibility {
-                    HStack(spacing: 8) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.yellow)
-                            .font(.system(size: 14))
-
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Cần cấp quyền Trợ năng (Accessibility)")
-                                .font(.system(size: 11, weight: .bold))
-                            Text("Bật MacMate trong Cài đặt hệ thống để phím tắt hoạt động.")
-                                .font(.system(size: 9))
-                                .foregroundStyle(.secondary)
-                        }
-
-                        Spacer()
-
-                        Button("Cấp quyền") {
-                            keyInterceptor.requestAccessibility()
-                        }
-                        .font(.system(size: 9, weight: .semibold))
-                        .controlSize(.mini)
-                    }
-                    .padding(10)
-                    .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.yellow.opacity(0.12)))
-                }
-
-                HStack(spacing: 8) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Tùy chỉnh từng tính năng")
-                            .font(.system(size: 10, weight: .bold))
-                        Text("Phím tắt được đặt ngay trong từng mục.")
-                            .font(.system(size: 8))
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer(minLength: 4)
-                    Button("Đặt mặc định tất cả") {
-                        shortcutManager.restoreDefaults()
-                    }
-                    .font(.system(size: 8, weight: .semibold))
-                    .buttonStyle(.bordered)
-                    .controlSize(.mini)
-                    .help("Khôi phục tổ hợp phím mặc định cho tất cả tính năng")
-                }
-                .macMateCard(padding: 10)
-
-                // AltTab Card
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "macwindow.on.rectangle")
-                            .font(.system(size: 12))
-                            .foregroundStyle(Color.accentColor)
-
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text("Chuyển đổi cửa sổ")
-                                .font(.system(size: 11.5, weight: .bold))
-                            Text("Thay thế AltTab với live preview độc lập & chuẩn MRU")
-                                .font(.system(size: 9))
-                                .foregroundStyle(.secondary)
-                        }
-
-                        Spacer()
-
-                        Toggle("", isOn: Binding<Bool>(
-                            get: { windowManager.isAltTabEnabled },
-                            set: { windowManager.isAltTabEnabled = $0 }
-                        ))
-                        .toggleStyle(.switch)
-                        .controlSize(.mini)
-                        .labelsHidden()
-                    }
-
-                    shortcutBindingRow(.altTabNext)
-                    shortcutBindingRow(.altTabPrevious)
-                    if windowManager.isAltTabEnabled {
-                        HStack(spacing: 6) {
-                            shortcutPill(key: "W", desc: "Đóng cửa sổ")
-                            shortcutPill(key: "Q", desc: "Thoát App")
-                        }
-
-                        if !windowManager.hasScreenRecording {
-                            HStack(spacing: 6) {
-                                Image(systemName: "camera.viewfinder")
-                                    .font(.system(size: 9))
-                                    .foregroundStyle(.cyan)
-                                Text("Cần quyền Ghi màn hình để hiện ảnh chụp cửa sổ thực tế.")
-                                    .font(.system(size: 8))
-                                    .foregroundStyle(.secondary)
-                                Spacer()
-                                Button("Cấp quyền") {
-                                    windowManager.requestScreenRecordingPermission()
-                                }
-                                .font(.system(size: 8, weight: .semibold))
-                                .controlSize(.mini)
-                            }
-                            .padding(5)
-                            .background(RoundedRectangle(cornerRadius: 5).fill(Color.cyan.opacity(0.08)))
-                        }
-                    }
-                }
-                .macMateCard(padding: 12)
-
-                VStack(alignment: .leading, spacing: 7) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "cursorarrow.click.2")
-                            .font(.system(size: 12))
-                            .foregroundStyle(Color.accentColor)
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text("Bấm đồng thời Chuột Trái + Phải mở Mission Control")
-                                .font(.system(size: 10, weight: .semibold))
-                            Text("Có thể bật/tắt Mouse Chord bằng phím tắt bên dưới.")
-                                .font(.system(size: 8))
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Toggle("", isOn: $shortcutManager.isMouseChordEnabled)
-                            .toggleStyle(.switch)
-                            .controlSize(.mini)
-                            .labelsHidden()
-                    }
-                    shortcutBindingRow(.toggleMouseChord)
-                }
-                .macMateCard(padding: 12)
-
-                // Window Snapping (Rectangle) Card
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "rectangle.split.2x1")
-                            .font(.system(size: 12))
-                            .foregroundStyle(Color.accentColor)
-
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text("Chia cửa sổ & Đa màn hình")
-                                .font(.system(size: 11.5, weight: .bold))
-                            Text("Bố trí cửa sổ nhanh với độ trễ 0ms")
-                                .font(.system(size: 9))
-                                .foregroundStyle(.secondary)
-                        }
-
-                        Spacer()
-
-                        Toggle("", isOn: Binding<Bool>(
-                            get: { snapManager.isSnapEnabled },
-                            set: { snapManager.isSnapEnabled = $0 }
-                        ))
-                        .toggleStyle(.switch)
-                        .controlSize(.mini)
-                        .labelsHidden()
-                    }
-
-                    VStack(spacing: 4) {
-                        shortcutBindingRow(.snapLeft)
-                        shortcutBindingRow(.snapRight)
-                        shortcutBindingRow(.snapMaximize)
-                        shortcutBindingRow(.snapCenter)
-                        shortcutBindingRow(.moveNextDisplay)
-                        shortcutBindingRow(.movePreviousDisplay)
-                    }
-                }
-                .macMateCard(padding: 12)
-
-                // Clipboard Manager (Maccy Replacement) Card
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "doc.on.clipboard.fill")
-                            .font(.system(size: 12))
-                            .foregroundStyle(Color.accentColor)
-
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text("Quản lý Clipboard")
-                                .font(.system(size: 11.5, weight: .bold))
-                            Text("Lịch sử sao chép thông minh, tìm kiếm & dán tức thì")
-                                .font(.system(size: 9))
-                                .foregroundStyle(.secondary)
-                        }
-
-                        Spacer()
-
-                        Toggle("", isOn: Binding<Bool>(
-                            get: { clipboardManager.isMonitoringEnabled },
-                            set: { clipboardManager.isMonitoringEnabled = $0 }
-                        ))
-                        .toggleStyle(.switch)
-                        .controlSize(.mini)
-                        .labelsHidden()
-                    }
-
-                    if clipboardManager.isMonitoringEnabled {
-                        // Shortcuts & Quick Actions
-                        HStack(spacing: 6) {
-                            shortcutPill(key: "1..9", desc: "Dán tức thì")
-                            shortcutPill(key: "⌥P", desc: "Ghim")
-                            shortcutPill(key: "⌥⌫", desc: "Xóa")
-                        }
-                        // Storage limit + automatic cleanup options
-                        VStack(alignment: .leading, spacing: 5) {
-                            HStack(spacing: 4) {
-                                Text("Giới hạn:")
-                                    .font(.system(size: 8))
-                                    .foregroundStyle(.secondary)
-
-                                ForEach([50, 100, 200, 500], id: \.self) { count in
-                                    optionChip("\(count)", selected: clipboardManager.maxItemsCount == count) {
-                                        clipboardManager.maxItemsCount = count
-                                    }
-                                }
-                                optionChip("∞", selected: clipboardManager.hasUnlimitedHistory) {
-                                    clipboardManager.maxItemsCount = 0
-                                }
-
-                                Spacer()
-
-                                Text("\(clipboardManager.items.count) mục lưu")
-                                    .font(.system(size: 8))
-                                    .foregroundStyle(.secondary)
-                            }
-
-                            HStack(spacing: 4) {
-                                Text("Tự động xoá:")
-                                    .font(.system(size: 8))
-                                    .foregroundStyle(.secondary)
-
-                                ForEach([0, 7, 30, 90], id: \.self) { days in
-                                    optionChip(days == 0 ? "Không" : "\(days) ngày",
-                                               selected: clipboardManager.autoCleanupDays == days) {
-                                        clipboardManager.autoCleanupDays = days
-                                    }
-                                }
-
-                                Spacer()
-
-                                Button {
-                                    clipboardManager.cleanupNow()
-                                } label: {
-                                    Text("Dọn ngay")
-                                        .font(.system(size: 8, weight: .bold))
-                                        .padding(.horizontal, 5)
-                                        .padding(.vertical, 2)
-                                        .background(Capsule().fill(Color.orange.opacity(0.14)))
-                                        .foregroundStyle(Color.orange)
-                                }
-                                .buttonStyle(.plain)
-                                .help("Xoá mục chưa ghim cũ hơn \(clipboardManager.autoCleanupDays > 0 ? "\(clipboardManager.autoCleanupDays) ngày" : "30 ngày")")
-
-                                Button {
-                                    clipboardManager.requestClearAllUnpinned()
-                                } label: {
-                                    Text(clipboardManager.pendingClearAllConfirm ? "Chắc chắn?" : "Xoá tất cả")
-                                        .font(.system(size: 8, weight: .bold))
-                                        .padding(.horizontal, 5)
-                                        .padding(.vertical, 2)
-                                        .background(Capsule().fill(Color.red.opacity(clipboardManager.pendingClearAllConfirm ? 0.22 : 0.10)))
-                                        .foregroundStyle(Color.red)
-                                }
-                                .buttonStyle(.plain)
-                                .help("Xoá mọi mục chưa ghim (bấm 2 lần để xác nhận)")
-                            }
-
-                            if let message = clipboardManager.cleanupMessage {
-                                Text(message)
-                                    .font(.system(size: 7.8, weight: .medium))
-                                    .foregroundStyle(Color.orange.opacity(0.95))
-                                    .fixedSize(horizontal: false, vertical: true)
-                                    .transition(.opacity)
-                            }
-
-                            if clipboardManager.hasUnlimitedHistory {
-                                Text(clipboardManager.autoCleanupDays == 0
-                                     ? "Không giới hạn số mục: nên bật tự động xoá để tránh phình bộ nhớ."
-                                     : "Không giới hạn số mục • tự động xoá sau \(clipboardManager.autoCleanupDays) ngày.")
-                                    .font(.system(size: 7.5))
-                                    .foregroundStyle(Color.orange.opacity(0.9))
-                            }
-                        }
-
-                        // Ignore passwords toggle
-                        HStack(spacing: 6) {
-                            Image(systemName: "lock.shield")
-                                .font(.system(size: 8.5))
-                                .foregroundStyle(.green)
-                            Text("Tự động bỏ qua mật khẩu (1Password, Bitwarden, Keychain)")
-                                .font(.system(size: 8))
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            Toggle("", isOn: Binding<Bool>(
-                                get: { clipboardManager.ignoreConcealedTypes },
-                                set: { clipboardManager.ignoreConcealedTypes = $0 }
-                            ))
-                            .toggleStyle(.switch)
-                            .controlSize(.mini)
-                            .labelsHidden()
-                        }
-
-                        // Open HUD Button
-                        Button {
-                            clipboardManager.toggleHUD()
-                        } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: "macwindow")
-                                    .font(.system(size: 8.5))
-                                Text("Mở bảng Clipboard HUD")
-                                    .font(.system(size: 8.5, weight: .semibold))
-                            }
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .frame(maxWidth: .infinity)
-                            .background(Color.accentColor.opacity(0.12))
-                            .foregroundStyle(Color.accentColor)
-                            .cornerRadius(5)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    shortcutBindingRow(.clipboardHUD)
-                }
-                .macMateCard(padding: 12)
-
-                // Smooth scrolling for discrete external mouse wheels
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "computermouse.fill")
-                            .font(.system(size: 12))
-                            .foregroundStyle(Color.accentColor)
-
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text("Cuộn mượt cho chuột ngoài")
-                                .font(.system(size: 11.5, weight: .bold))
-                            Text("Easing & quán tính kiểu Mos • không ảnh hưởng trackpad")
-                                .font(.system(size: 9))
-                                .foregroundStyle(.secondary)
-                        }
-
-                        Spacer()
-
-                        Toggle("", isOn: Binding(
-                            get: { smoothScrollManager.isEnabled },
-                            set: { smoothScrollManager.setEnabled($0) }
-                        ))
-                            .toggleStyle(.switch)
-                            .controlSize(.mini)
-                            .labelsHidden()
-                    }
-
-                    HStack(spacing: 6) {
-                        Text("Đảo chiều cuộn chuột ngoài • không ảnh hưởng trackpad/Magic Mouse")
-                            .font(.system(size: 8.5, weight: .medium))
-                        Spacer()
-                        Toggle("", isOn: Binding(
-                            get: { smoothScrollManager.isReverseScrollingEnabled },
-                            set: { smoothScrollManager.setReverseScrollingEnabled($0) }
-                        ))
-                        .toggleStyle(.switch)
-                        .controlSize(.mini)
-                        .labelsHidden()
-                    }
-
-                    if smoothScrollManager.isEnabled {
-                        HStack(spacing: 8) {
-                            Text("Tốc độ")
-                                .font(.system(size: 8.5, weight: .medium))
-                                .frame(width: 48, alignment: .leading)
-                            Slider(value: Binding(
-                                get: { smoothScrollManager.speed },
-                                set: { smoothScrollManager.setSpeed($0) }
-                            ), in: 0.5...3.0, step: 0.1)
-                                .controlSize(.mini)
-                            Text(String(format: "%.1fx", smoothScrollManager.speed))
-                                .font(.system(size: 8, weight: .bold, design: .monospaced))
-                                .frame(width: 32, alignment: .trailing)
-                        }
-
-                        HStack(spacing: 8) {
-                            Text("Độ mượt")
-                                .font(.system(size: 8.5, weight: .medium))
-                                .frame(width: 48, alignment: .leading)
-                            Slider(value: Binding(
-                                get: { smoothScrollManager.smoothness },
-                                set: { smoothScrollManager.setSmoothness($0) }
-                            ), in: 0...1, step: 0.05)
-                                .controlSize(.mini)
-                            Text("\(Int(smoothScrollManager.smoothness * 100))%")
-                                .font(.system(size: 8, weight: .bold, design: .monospaced))
-                                .frame(width: 32, alignment: .trailing)
-                        }
-
-                        HStack(spacing: 5) {
-                            Image(systemName: "arrow.up.and.down.and.arrow.left.and.right")
-                                .font(.system(size: 8))
-                                .foregroundStyle(.green)
-                            Text("Hỗ trợ cuộn dọc, cuộn ngang và Shift + wheel")
-                                .font(.system(size: 8))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-                .macMateCard(padding: 12)
-
+            LazyVStack(alignment: .leading, spacing: 12) {
+                AccessibilityBanner()
+                ShortcutsIntroCard()
+                WindowSwitchCard(manager: windowManager)
+                WindowSnapCard(manager: snapManager)
+                ClipboardSettingsCard(manager: clipboardManager)
+                MouseChordCard()
+                ScrollSettingsCard()
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(14)
+            .frame(maxWidth: .infinity)
         }
     }
+}
 
-    private func optionChip(_ title: String, selected: Bool, action: @escaping () -> Void) -> some View {
+private struct AccessibilityBanner: View {
+    @ObservedObject private var keyInterceptor = KeyInterceptor.shared
+
+    var body: some View {
+        if !keyInterceptor.hasAccessibility {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                    .font(.system(size: 16))
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Cần cấp quyền Trợ năng")
+                        .font(.system(size: 12, weight: .semibold))
+                    Text("Bật MacMate trong Cài đặt hệ thống để dùng phím tắt và điều khiển cửa sổ.")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button("Mở cài đặt quyền") { keyInterceptor.requestAccessibility() }
+                        .font(.system(size: 10, weight: .semibold))
+                        .buttonStyle(.link)
+                }
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .macMateCard(padding: 12, tint: .orange)
+        }
+    }
+}
+
+private struct ShortcutsIntroCard: View {
+    private let shortcuts = ShortcutManager.shared
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 10) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Tùy chỉnh MacMate")
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                Text("Bật tính năng và gán phím tắt ngay bên dưới.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+            Button("Khôi phục") { shortcuts.restoreDefaults() }
+                .font(.system(size: 10, weight: .medium))
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .help("Khôi phục tất cả phím tắt mặc định")
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .macMateCard(padding: 14, tint: .accentColor)
+    }
+}
+
+private struct WindowSwitchCard: View {
+    @ObservedObject var manager: WindowManager
+
+    var body: some View {
+        SettingsCard(title: "Chuyển cửa sổ", subtitle: "Chuyển nhanh giữa các cửa sổ đang mở", icon: "macwindow.on.rectangle", tint: .blue) {
+            Toggle("Bật chuyển cửa sổ", isOn: $manager.isAltTabEnabled)
+        } content: {
+            ShortcutBindingRow(action: .altTabNext)
+            ShortcutBindingRow(action: .altTabPrevious)
+            if manager.isAltTabEnabled {
+                HStack(spacing: 10) {
+                    ShortcutHint(key: "W", label: "Đóng cửa sổ")
+                    ShortcutHint(key: "Q", label: "Thoát ứng dụng")
+                }
+                .padding(.top, 2)
+                if !manager.hasScreenRecording {
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: "camera.viewfinder")
+                            .foregroundStyle(.cyan)
+                        Text("Cấp quyền Ghi màn hình để xem trước cửa sổ.")
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Button("Cấp quyền") { manager.requestScreenRecordingPermission() }
+                            .buttonStyle(.link)
+                    }
+                    .font(.system(size: 10))
+                    .padding(9)
+                    .background(Color.cyan.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+                }
+            }
+        }
+    }
+}
+
+private struct WindowSnapCard: View {
+    @ObservedObject var manager: WindowSnapManager
+
+    var body: some View {
+        SettingsCard(title: "Sắp xếp cửa sổ", subtitle: "Chia màn hình và chuyển giữa các màn hình", icon: "rectangle.split.2x1", tint: .indigo) {
+            Toggle("Bật sắp xếp cửa sổ", isOn: $manager.isSnapEnabled)
+        } content: {
+            ShortcutBindingRow(action: .snapLeft)
+            ShortcutBindingRow(action: .snapRight)
+            ShortcutBindingRow(action: .snapMaximize)
+            ShortcutBindingRow(action: .snapCenter)
+            ShortcutBindingRow(action: .moveNextDisplay)
+            ShortcutBindingRow(action: .movePreviousDisplay)
+        }
+    }
+}
+
+private struct ClipboardSettingsCard: View {
+    @ObservedObject var manager: ClipboardManager
+
+    var body: some View {
+        SettingsCard(title: "Clipboard", subtitle: "Lưu, tìm và dán lại nội dung đã sao chép", icon: "doc.on.clipboard.fill", tint: .orange) {
+            Toggle("Bật lịch sử Clipboard", isOn: $manager.isMonitoringEnabled)
+        } content: {
+            ShortcutBindingRow(action: .clipboardHUD)
+
+            if manager.isMonitoringEnabled {
+                HStack(spacing: 8) {
+                    ShortcutHint(key: "1–9", label: "Dán nhanh")
+                    ShortcutHint(key: "⌥P", label: "Ghim")
+                    ShortcutHint(key: "⌥⌫", label: "Xóa")
+                }
+                .padding(.vertical, 3)
+
+                Divider()
+                VStack(alignment: .leading, spacing: 7) {
+                    HStack {
+                        Text("Giới hạn lịch sử")
+                            .font(.system(size: 10, weight: .medium))
+                        Spacer()
+                        Text("\(manager.items.count) mục")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                    }
+                    HStack(spacing: 5) {
+                        ForEach([50, 100, 200, 500], id: \.self) { count in
+                            SettingsChip(title: "\(count)", selected: manager.maxItemsCount == count) {
+                                manager.maxItemsCount = count
+                            }
+                        }
+                        SettingsChip(title: "∞", selected: manager.hasUnlimitedHistory) {
+                            manager.maxItemsCount = 0
+                        }
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 7) {
+                    Text("Tự động xóa sau")
+                        .font(.system(size: 10, weight: .medium))
+                    HStack(spacing: 5) {
+                        ForEach([0, 7, 30, 90], id: \.self) { days in
+                            SettingsChip(title: days == 0 ? "Không" : "\(days) ngày", selected: manager.autoCleanupDays == days) {
+                                manager.autoCleanupDays = days
+                            }
+                        }
+                    }
+                }
+
+                if manager.hasUnlimitedHistory {
+                    Text(manager.autoCleanupDays == 0
+                         ? "Nên bật tự động xóa để giới hạn dung lượng lưu trữ."
+                         : "Các mục cũ sẽ tự xóa sau \(manager.autoCleanupDays) ngày.")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Toggle("Bỏ qua mật khẩu từ ứng dụng bảo mật", isOn: $manager.ignoreConcealedTypes)
+                    .font(.system(size: 10))
+
+                HStack(spacing: 8) {
+                    Button("Mở bảng Clipboard") { manager.toggleHUD() }
+                        .buttonStyle(.borderedProminent)
+                    Spacer(minLength: 0)
+                    Button("Dọn ngay") { manager.cleanupNow() }
+                        .help("Xóa mục chưa ghim cũ hơn \(manager.autoCleanupDays > 0 ? "\(manager.autoCleanupDays) ngày" : "30 ngày")")
+                    Button(manager.pendingClearAllConfirm ? "Xác nhận xóa" : "Xóa tất cả") {
+                        manager.requestClearAllUnpinned()
+                    }
+                    .foregroundStyle(.red)
+                    .help("Xóa mọi mục chưa ghim; bấm hai lần để xác nhận")
+                }
+                .font(.system(size: 10, weight: .medium))
+                .controlSize(.small)
+
+                if let message = manager.cleanupMessage {
+                    Text(message)
+                        .font(.system(size: 10))
+                        .foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+}
+
+private struct MouseChordCard: View {
+    @ObservedObject private var shortcuts = ShortcutManager.shared
+
+    var body: some View {
+        SettingsCard(title: "Mission Control", subtitle: "Bấm đồng thời chuột trái và phải", icon: "cursorarrow.click.2", tint: .purple) {
+            Toggle("Bật tổ hợp chuột", isOn: $shortcuts.isMouseChordEnabled)
+        } content: {
+            ShortcutBindingRow(action: .toggleMouseChord)
+        }
+    }
+}
+
+private struct ScrollSettingsCard: View {
+    @ObservedObject private var manager = SmoothScrollManager.shared
+
+    var body: some View {
+        SettingsCard(title: "Cuộn chuột", subtitle: "Cuộn mượt cho chuột ngoài", icon: "computermouse.fill", tint: .green) {
+            Toggle("Bật cuộn mượt", isOn: Binding(
+                get: { manager.isEnabled }, set: { manager.setEnabled($0) }
+            ))
+        } content: {
+            Toggle("Đảo chiều cuộn chuột ngoài", isOn: Binding(
+                get: { manager.isReverseScrollingEnabled },
+                set: { manager.setReverseScrollingEnabled($0) }
+            ))
+            .font(.system(size: 10))
+
+            if manager.isEnabled {
+                ScrollSlider(title: "Tốc độ", value: Binding(
+                    get: { manager.speed }, set: { manager.setSpeed($0) }
+                ), range: 0.5...3, step: 0.1, display: String(format: "%.1fx", manager.speed))
+                ScrollSlider(title: "Độ mượt", value: Binding(
+                    get: { manager.smoothness }, set: { manager.setSmoothness($0) }
+                ), range: 0...1, step: 0.05, display: "\(Int(manager.smoothness * 100))%")
+                Text("Hỗ trợ cuộn dọc, cuộn ngang và Shift + bánh xe")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+private struct SettingsCard<Control: View, Content: View>: View {
+    let title: String
+    let subtitle: String
+    let icon: String
+    let tint: Color
+    @ViewBuilder let control: Control
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 10) {
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(tint)
+                    .frame(width: 30, height: 30)
+                    .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 9))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 12, weight: .semibold))
+                    Text(subtitle)
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+            control
+                .font(.system(size: 10, weight: .medium))
+                .toggleStyle(.switch)
+                .controlSize(.small)
+            Divider()
+            content
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .macMateCard(padding: 13)
+    }
+}
+
+private struct ShortcutBindingRow: View {
+    let action: ShortcutAction
+    @ObservedObject private var shortcuts = ShortcutManager.shared
+
+    var body: some View {
+        let binding = shortcuts.binding(for: action)
+        return HStack(spacing: 8) {
+            Toggle(action.title, isOn: Binding(
+                get: { shortcuts.binding(for: action).isEnabled },
+                set: { enabled in
+                    var updated = shortcuts.binding(for: action)
+                    updated.isEnabled = enabled
+                    _ = shortcuts.setBinding(updated, for: action)
+                }
+            ))
+            .font(.system(size: 10))
+            .toggleStyle(.switch)
+            .controlSize(.mini)
+            .lineLimit(2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            KeyRecorderView(binding: binding) { shortcuts.setBinding($0, for: action) }
+                .disabled(!binding.isEnabled)
+        }
+        .frame(minHeight: 28)
+    }
+}
+
+private struct SettingsChip: View {
+    let title: String
+    let selected: Bool
+    let action: () -> Void
+
+    var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 8.5, weight: selected ? .bold : .medium))
-                .padding(.horizontal, 5)
-                .padding(.vertical, 2)
-                .background(Capsule().fill(selected ? Color.accentColor : Color.primary.opacity(0.06)))
+                .font(.system(size: 10, weight: selected ? .semibold : .regular))
+                .frame(minWidth: 36)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 5)
                 .foregroundStyle(selected ? Color.white : Color.primary)
+                .background(selected ? Color.accentColor : Color.primary.opacity(0.07), in: Capsule())
         }
         .buttonStyle(.plain)
     }
+}
 
-    private func shortcutPill(key: String, desc: String) -> some View {
-        HStack(spacing: 3) {
+private struct ShortcutHint: View {
+    let key: String
+    let label: String
+
+    var body: some View {
+        HStack(spacing: 4) {
             Text(key)
-                .font(.system(size: 9.5, weight: .bold, design: .monospaced))
-                .padding(.horizontal, 4)
-                .padding(.vertical, 2)
-                .background(RoundedRectangle(cornerRadius: 4).fill(Color.primary.opacity(0.08)))
-            Text(desc)
-                .font(.system(size: 9))
+                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .padding(.horizontal, 5)
+                .padding(.vertical, 3)
+                .background(Color.primary.opacity(0.07), in: RoundedRectangle(cornerRadius: 5))
+            Text(label)
+                .font(.system(size: 10))
                 .foregroundStyle(.secondary)
         }
     }
+}
 
-    private func shortcutBindingRow(_ action: ShortcutAction) -> some View {
-        let binding = shortcutManager.binding(for: action)
-        return HStack(spacing: 6) {
-            Toggle("", isOn: Binding(
-                get: { shortcutManager.binding(for: action).isEnabled },
-                set: { enabled in
-                    var updated = shortcutManager.binding(for: action)
-                    updated.isEnabled = enabled
-                    _ = shortcutManager.setBinding(updated, for: action)
-                }
-            ))
-            .toggleStyle(.switch)
-            .controlSize(.mini)
-            .labelsHidden()
+private struct ScrollSlider: View {
+    let title: String
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+    let step: Double
+    let display: String
 
-            Text(action.title)
-                .font(.system(size: 8.5, weight: .medium))
-                .lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            KeyRecorderView(binding: binding) { recorded in
-                shortcutManager.setBinding(recorded, for: action)
-            }
-            .disabled(!binding.isEnabled)
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(title)
+                .font(.system(size: 10, weight: .medium))
+                .frame(width: 54, alignment: .leading)
+            Slider(value: $value, in: range, step: step)
+                .controlSize(.small)
+            Text(display)
+                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .frame(width: 38, alignment: .trailing)
         }
     }
 }

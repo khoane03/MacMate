@@ -20,22 +20,12 @@
     <string>$(MARKETING_VERSION)</string>
     <key>CFBundleVersion</key>
     <string>$(CURRENT_PROJECT_VERSION)</string>
-    <key>MacMateUpdateRepositoryOwner</key>
-    <string>$(MACMATE_UPDATE_REPOSITORY_OWNER)</string>
-    <key>MacMateUpdateRepositoryName</key>
-    <string>$(MACMATE_UPDATE_REPOSITORY_NAME)</string>
     <key>LSMinimumSystemVersion</key>
     <string>$(MACOSX_DEPLOYMENT_TARGET)</string>
     <key>LSUIElement</key>
     <true/>
     <key>NSHighResolutionCapable</key>
     <true/>
-    <key>NSAppleEventsUsageDescription</key>
-    <string>MacMate sử dụng AppleEvents để điều khiển các ứng dụng.</string>
-    <key>NSBluetoothAlwaysUsageDescription</key>
-    <string>MacMate sử dụng Bluetooth để tự động ngắt kết nối khi gập nắp máy, giúp chống tụt pin và chống nóng máy khi ngủ.</string>
-    <key>NSBluetoothPeripheralUsageDescription</key>
-    <string>MacMate quản lý nguồn Bluetooth khi máy Mac vào chế độ ngủ để tiết kiệm pin.</string>
     <key>NSScreenCaptureUsageDescription</key>
     <string>MacMate cần quyền ghi màn hình để hiển thị ảnh xem trước các cửa sổ trong trình chuyển đổi Alt+Tab.</string>
 </dict>
