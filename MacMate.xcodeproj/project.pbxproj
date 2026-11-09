@@ -15,7 +15,6 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
-				Resources/smc,
 			);
 			target = D25C6F3C3095E64A00E1474E /* MacMate */;
 		};
@@ -69,7 +68,6 @@
 				D25C6F393095E64A00E1474E /* Sources */,
 				D25C6F3A3095E64A00E1474E /* Frameworks */,
 				D25C6F3B3095E64A00E1474E /* Resources */,
-				D25C6F513095E64E00E1474E /* Build universal SMC helper */,
 			);
 			buildRules = (
 			);
@@ -128,36 +126,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
-
-/* Begin PBXShellScriptBuildPhase section */
-		D25C6F513095E64E00E1474E /* Build universal SMC helper */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-				"$(SRCROOT)/scripts/build-smc.sh",
-				"$(SRCROOT)/ThirdParty/MacMonitor-SMC/SMC.c",
-				"$(SRCROOT)/ThirdParty/MacMonitor-SMC/SMC.h",
-				"$(SRCROOT)/ThirdParty/MacMonitor-SMC/smc_cli.c",
-				"$(SRCROOT)/ThirdParty/MacMonitor-SMC/LICENSE",
-			);
-			name = "Build universal SMC helper";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"$(DERIVED_FILE_DIR)/smc-universal",
-				"$(DERIVED_FILE_DIR)/smc-universal.lipo",
-				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/smc",
-				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/ThirdParty/MacMonitor-SMC-LICENSE.txt",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/bash;
-			shellScript = "/bin/bash \"${SRCROOT}/scripts/build-smc.sh\"\n";
-		};
-/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		D25C6F393095E64A00E1474E /* Sources */ = {
@@ -302,29 +270,18 @@
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_PREVIEWS = YES;
-				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = MacMate/Info.plist;
 				INFOPLIST_KEY_CFBundleIconFile = AppIcon;
 				INFOPLIST_KEY_LSUIElement = YES;
-				INFOPLIST_KEY_NSAppleEventsUsageDescription = "MacMate sử dụng AppleEvents để điều khiển các ứng dụng.";
-				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "MacMate sử dụng Bluetooth để tự động ngắt kết nối khi gập nắp máy, giúp chống tụt pin và chống nóng máy khi ngủ.";
-				INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription = "MacMate quản lý nguồn Bluetooth khi máy Mac vào chế độ ngủ để tiết kiệm pin.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSScreenCaptureUsageDescription = "MacMate cần quyền ghi màn hình để hiển thị ảnh xem trước các cửa sổ trong trình chuyển đổi Alt+Tab.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACMATE_UPDATE_REPOSITORY_NAME = MacMate;
-				MACMATE_UPDATE_REPOSITORY_OWNER = khoane03;
 				MACMATE_VERSION = 1.0.0;
 				MARKETING_VERSION = "$(MACMATE_VERSION)";
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-framework",
-					IOKit,
-				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.app.MacMate;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -340,7 +297,6 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = MacMate/MacMate.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 100;
@@ -348,29 +304,18 @@
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
-				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = MacMate/Info.plist;
 				INFOPLIST_KEY_CFBundleIconFile = AppIcon;
 				INFOPLIST_KEY_LSUIElement = YES;
-				INFOPLIST_KEY_NSAppleEventsUsageDescription = "MacMate sử dụng AppleEvents để điều khiển các ứng dụng.";
-				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "MacMate sử dụng Bluetooth để tự động ngắt kết nối khi gập nắp máy, giúp chống tụt pin và chống nóng máy khi ngủ.";
-				INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription = "MacMate quản lý nguồn Bluetooth khi máy Mac vào chế độ ngủ để tiết kiệm pin.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSScreenCaptureUsageDescription = "MacMate cần quyền ghi màn hình để hiển thị ảnh xem trước các cửa sổ trong trình chuyển đổi Alt+Tab.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACMATE_UPDATE_REPOSITORY_NAME = MacMate;
-				MACMATE_UPDATE_REPOSITORY_OWNER = khoane03;
 				MACMATE_VERSION = 1.0.0;
 				MARKETING_VERSION = "$(MACMATE_VERSION)";
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-framework",
-					IOKit,
-				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.app.MacMate;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
