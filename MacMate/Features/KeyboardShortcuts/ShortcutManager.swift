@@ -12,7 +12,6 @@ public enum ShortcutAction: String, CaseIterable, Codable, Identifiable {
     case snapCenter
     case moveNextDisplay
     case movePreviousDisplay
-    case toggleMouseChord
 
     public var id: String { rawValue }
 
@@ -27,7 +26,6 @@ public enum ShortcutAction: String, CaseIterable, Codable, Identifiable {
         case .snapCenter: return "Chia cửa sổ: Căn giữa"
         case .moveNextDisplay: return "Chuyển cửa sổ sang màn hình kế tiếp"
         case .movePreviousDisplay: return "Chuyển cửa sổ sang màn hình trước"
-        case .toggleMouseChord: return "Bật/tắt Mouse Chord"
         }
     }
 }
@@ -163,8 +161,7 @@ public final class ShortcutManager: ObservableObject {
         .snapMaximize: ShortcutBinding(keyCode: 126, modifierFlags: CGEventFlags.maskControl.rawValue | CGEventFlags.maskAlternate.rawValue),
         .snapCenter: ShortcutBinding(keyCode: 125, modifierFlags: CGEventFlags.maskControl.rawValue | CGEventFlags.maskAlternate.rawValue),
         .moveNextDisplay: ShortcutBinding(keyCode: 124, modifierFlags: CGEventFlags.maskAlternate.rawValue | CGEventFlags.maskCommand.rawValue),
-        .movePreviousDisplay: ShortcutBinding(keyCode: 123, modifierFlags: CGEventFlags.maskAlternate.rawValue | CGEventFlags.maskCommand.rawValue),
-        .toggleMouseChord: ShortcutBinding(keyCode: 46, modifierFlags: CGEventFlags.maskControl.rawValue | CGEventFlags.maskAlternate.rawValue, isEnabled: false)
+        .movePreviousDisplay: ShortcutBinding(keyCode: 123, modifierFlags: CGEventFlags.maskAlternate.rawValue | CGEventFlags.maskCommand.rawValue)
     ]
 }
 

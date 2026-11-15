@@ -1,26 +1,37 @@
 import SwiftUI
 
 struct ShortcutsTabView: View {
+    let selectedTab: MainTab
     let snapManager: WindowSnapManager
     let windowManager: WindowManager
     let clipboardManager: ClipboardManager
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
-            LazyVStack(alignment: .leading, spacing: 12) {
+            LazyVStack(alignment: .leading, spacing: 14) {
                 AccessibilityBanner()
-                ShortcutsIntroCard()
-                WindowSwitchCard(manager: windowManager)
-                WindowSnapCard(manager: snapManager)
-                ClipboardSettingsCard(manager: clipboardManager)
-                MouseChordCard()
-                ScrollSettingsCard()
+
+                switch selectedTab {
+                case .window:
+                    WindowSwitchCard(manager: windowManager)
+                    WindowSnapCard(manager: snapManager)
+                case .clipboard:
+                    ClipboardSettingsCard(manager: clipboardManager)
+                case .mouse:
+                    ScrollSettingsCard()
+                    MouseChordCard()
+                }
+
+                // Global Restore Defaults Card
+                RestoreDefaultsFooter()
             }
             .padding(14)
             .frame(maxWidth: .infinity)
         }
     }
 }
+
+// MARK: - Accessibility Banner
 
 private struct AccessibilityBanner: View {
     @ObservedObject private var keyInterceptor = KeyInterceptor.shared
@@ -30,16 +41,16 @@ private struct AccessibilityBanner: View {
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange)
-                    .font(.system(size: 16))
+                    .font(.system(size: 18))
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Cần cấp quyền Trợ năng")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: 12.5, weight: .semibold))
                     Text("Bật MacMate trong Cài đặt hệ thống để dùng phím tắt và điều khiển cửa sổ.")
-                        .font(.system(size: 10))
+                        .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                     Button("Mở cài đặt quyền") { keyInterceptor.requestAccessibility() }
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.system(size: 11, weight: .semibold))
                         .buttonStyle(.link)
                 }
                 Spacer(minLength: 0)
@@ -50,68 +61,95 @@ private struct AccessibilityBanner: View {
     }
 }
 
-private struct ShortcutsIntroCard: View {
+// MARK: - Restore Defaults Footer
+
+private struct RestoreDefaultsFooter: View {
     private let shortcuts = ShortcutManager.shared
 
     var body: some View {
-        HStack(alignment: .center, spacing: 10) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Tùy chỉnh MacMate")
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
-                Text("Bật tính năng và gán phím tắt ngay bên dưới.")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.secondary)
+        HStack {
+            Spacer()
+            Button {
+                shortcuts.restoreDefaults()
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "arrow.counterclockwise")
+                        .font(.system(size: 10))
+                    Text("Khôi phục phím tắt mặc định")
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .foregroundStyle(.secondary)
             }
-            Spacer(minLength: 0)
-            Button("Khôi phục") { shortcuts.restoreDefaults() }
-                .font(.system(size: 10, weight: .medium))
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .help("Khôi phục tất cả phím tắt mặc định")
+            .buttonStyle(.plain)
+            .help("Khôi phục tất cả phím tắt mặc định của MacMate")
+            Spacer()
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .macMateCard(padding: 14, tint: .accentColor)
+        .padding(.vertical, 4)
     }
 }
+
+// MARK: - Window Switcher Settings Card
 
 private struct WindowSwitchCard: View {
     @ObservedObject var manager: WindowManager
 
     var body: some View {
-        SettingsCard(title: "Chuyển cửa sổ", subtitle: "Chuyển nhanh giữa các cửa sổ đang mở", icon: "macwindow.on.rectangle", tint: .blue) {
+        SettingsCard(
+            title: "Chuyển cửa sổ (Alt+Tab)",
+            subtitle: "Xem trước và chuyển nhanh giữa các cửa sổ",
+            icon: "macwindow.on.rectangle",
+            tint: .blue
+        ) {
             Toggle("Bật chuyển cửa sổ", isOn: $manager.isAltTabEnabled)
         } content: {
             ShortcutBindingRow(action: .altTabNext)
             ShortcutBindingRow(action: .altTabPrevious)
+
             if manager.isAltTabEnabled {
-                HStack(spacing: 10) {
+                HStack(spacing: 12) {
                     ShortcutHint(key: "W", label: "Đóng cửa sổ")
                     ShortcutHint(key: "Q", label: "Thoát ứng dụng")
                 }
-                .padding(.top, 2)
+                .padding(.vertical, 3)
+
                 if !manager.hasScreenRecording {
                     HStack(alignment: .top, spacing: 8) {
                         Image(systemName: "camera.viewfinder")
                             .foregroundStyle(.cyan)
-                        Text("Cấp quyền Ghi màn hình để xem trước cửa sổ.")
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        Button("Cấp quyền") { manager.requestScreenRecordingPermission() }
+                            .font(.system(size: 14))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Cần quyền Ghi màn hình")
+                                .font(.system(size: 11, weight: .semibold))
+                            Text("Cấp quyền để MacMate hiển thị hình ảnh thu nhỏ thực tế của các cửa sổ.")
+                                .font(.system(size: 10.5))
+                                .foregroundStyle(.secondary)
+                            Button("Cấp quyền ghi màn hình") {
+                                manager.requestScreenRecordingPermission()
+                            }
+                            .font(.system(size: 10.5, weight: .semibold))
                             .buttonStyle(.link)
+                        }
                     }
-                    .font(.system(size: 10))
-                    .padding(9)
-                    .background(Color.cyan.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+                    .padding(10)
+                    .background(Color.cyan.opacity(0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 }
             }
         }
     }
 }
 
+// MARK: - Window Snap Settings Card
+
 private struct WindowSnapCard: View {
     @ObservedObject var manager: WindowSnapManager
 
     var body: some View {
-        SettingsCard(title: "Sắp xếp cửa sổ", subtitle: "Chia màn hình và chuyển giữa các màn hình", icon: "rectangle.split.2x1", tint: .indigo) {
+        SettingsCard(
+            title: "Sắp xếp cửa sổ",
+            subtitle: "Chia màn hình và chuyển giữa các màn hình",
+            icon: "rectangle.split.2x1",
+            tint: .indigo
+        ) {
             Toggle("Bật sắp xếp cửa sổ", isOn: $manager.isSnapEnabled)
         } content: {
             ShortcutBindingRow(action: .snapLeft)
@@ -124,87 +162,106 @@ private struct WindowSnapCard: View {
     }
 }
 
+// MARK: - Clipboard Settings Card
+
 private struct ClipboardSettingsCard: View {
     @ObservedObject var manager: ClipboardManager
 
     var body: some View {
-        SettingsCard(title: "Clipboard", subtitle: "Lưu, tìm và dán lại nội dung đã sao chép", icon: "doc.on.clipboard.fill", tint: .orange) {
-            Toggle("Bật lịch sử Clipboard", isOn: $manager.isMonitoringEnabled)
+        SettingsCard(
+            title: "Lịch sử Clipboard",
+            subtitle: "Tự động ghi nhớ, tìm kiếm và dán lại nội dung",
+            icon: "doc.on.clipboard.fill",
+            tint: .orange
+        ) {
+            Toggle("Bật theo dõi Clipboard", isOn: $manager.isMonitoringEnabled)
         } content: {
             ShortcutBindingRow(action: .clipboardHUD)
 
             if manager.isMonitoringEnabled {
-                HStack(spacing: 8) {
+                HStack(spacing: 10) {
                     ShortcutHint(key: "1–9", label: "Dán nhanh")
                     ShortcutHint(key: "⌥P", label: "Ghim")
                     ShortcutHint(key: "⌥⌫", label: "Xóa")
                 }
                 .padding(.vertical, 3)
 
-                Divider()
-                VStack(alignment: .leading, spacing: 7) {
+                Divider().opacity(0.15)
+
+                // History Limit Chips
+                VStack(alignment: .leading, spacing: 6) {
                     HStack {
-                        Text("Giới hạn lịch sử")
-                            .font(.system(size: 10, weight: .medium))
+                        Text("Giới hạn lưu trữ")
+                            .font(.system(size: 11, weight: .medium))
                         Spacer()
-                        Text("\(manager.items.count) mục")
-                            .font(.system(size: 10))
+                        Text("\(manager.items.count) mục hiện tại")
+                            .font(.system(size: 10.5))
                             .foregroundStyle(.secondary)
                     }
-                    HStack(spacing: 5) {
+                    HStack(spacing: 6) {
                         ForEach([50, 100, 200, 500], id: \.self) { count in
                             SettingsChip(title: "\(count)", selected: manager.maxItemsCount == count) {
                                 manager.maxItemsCount = count
                             }
                         }
-                        SettingsChip(title: "∞", selected: manager.hasUnlimitedHistory) {
+                        SettingsChip(title: "Không giới hạn", selected: manager.hasUnlimitedHistory) {
                             manager.maxItemsCount = 0
                         }
                     }
                 }
 
-                VStack(alignment: .leading, spacing: 7) {
-                    Text("Tự động xóa sau")
-                        .font(.system(size: 10, weight: .medium))
-                    HStack(spacing: 5) {
+                // Auto Cleanup Chips
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Tự động dọn dẹp sau")
+                        .font(.system(size: 11, weight: .medium))
+                    HStack(spacing: 6) {
                         ForEach([0, 7, 30, 90], id: \.self) { days in
-                            SettingsChip(title: days == 0 ? "Không" : "\(days) ngày", selected: manager.autoCleanupDays == days) {
+                            SettingsChip(title: days == 0 ? "Không xóa" : "\(days) ngày", selected: manager.autoCleanupDays == days) {
                                 manager.autoCleanupDays = days
                             }
                         }
                     }
                 }
 
-                if manager.hasUnlimitedHistory {
-                    Text(manager.autoCleanupDays == 0
-                         ? "Nên bật tự động xóa để giới hạn dung lượng lưu trữ."
-                         : "Các mục cũ sẽ tự xóa sau \(manager.autoCleanupDays) ngày.")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.orange)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                Toggle("Bỏ qua mật khẩu từ ứng dụng bảo mật (1Password, Keychain…)", isOn: $manager.ignoreConcealedTypes)
+                    .font(.system(size: 11))
+                    .toggleStyle(.checkbox)
 
-                Toggle("Bỏ qua mật khẩu từ ứng dụng bảo mật", isOn: $manager.ignoreConcealedTypes)
-                    .font(.system(size: 10))
+                Divider().opacity(0.15)
 
+                // Actions: Open HUD & Cleanup
                 HStack(spacing: 8) {
-                    Button("Mở bảng Clipboard") { manager.toggleHUD() }
-                        .buttonStyle(.borderedProminent)
+                    Button {
+                        manager.toggleHUD()
+                    } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: "macwindow")
+                            Text("Mở bảng Clipboard")
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.regular)
+
                     Spacer(minLength: 0)
-                    Button("Dọn ngay") { manager.cleanupNow() }
-                        .help("Xóa mục chưa ghim cũ hơn \(manager.autoCleanupDays > 0 ? "\(manager.autoCleanupDays) ngày" : "30 ngày")")
-                    Button(manager.pendingClearAllConfirm ? "Xác nhận xóa" : "Xóa tất cả") {
+
+                    Button("Dọn mục cũ") { manager.cleanupNow() }
+                        .buttonStyle(.bordered)
+                        .controlSize(.regular)
+                        .help("Xóa các mục chưa ghim cũ hơn thời gian quy định")
+
+                    Button(manager.pendingClearAllConfirm ? "Xác nhận xóa" : "Xóa hết") {
                         manager.requestClearAllUnpinned()
                     }
+                    .buttonStyle(.bordered)
                     .foregroundStyle(.red)
-                    .help("Xóa mọi mục chưa ghim; bấm hai lần để xác nhận")
+                    .controlSize(.regular)
+                    .help("Bấm hai lần để xóa sạch toàn bộ mục chưa ghim")
                 }
-                .font(.system(size: 10, weight: .medium))
-                .controlSize(.small)
+                .font(.system(size: 11, weight: .medium))
 
                 if let message = manager.cleanupMessage {
                     Text(message)
-                        .font(.system(size: 10))
+                        .font(.system(size: 10.5))
                         .foregroundStyle(.orange)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -213,14 +270,21 @@ private struct ClipboardSettingsCard: View {
     }
 }
 
+// MARK: - Mouse & Scroll Settings Cards
+
 private struct MouseChordCard: View {
     @ObservedObject private var shortcuts = ShortcutManager.shared
 
     var body: some View {
-        SettingsCard(title: "Mission Control", subtitle: "Bấm đồng thời chuột trái và phải", icon: "cursorarrow.click.2", tint: .purple) {
+        SettingsCard(
+            title: "Cử chỉ chuột (Mission Control)",
+            subtitle: "Bấm đồng thời cả chuột trái và chuột phải",
+            icon: "cursorarrow.click.2",
+            tint: .purple
+        ) {
             Toggle("Bật tổ hợp chuột", isOn: $shortcuts.isMouseChordEnabled)
         } content: {
-            ShortcutBindingRow(action: .toggleMouseChord)
+            EmptyView()
         }
     }
 }
@@ -229,31 +293,55 @@ private struct ScrollSettingsCard: View {
     @ObservedObject private var manager = SmoothScrollManager.shared
 
     var body: some View {
-        SettingsCard(title: "Cuộn chuột", subtitle: "Cuộn mượt cho chuột ngoài", icon: "computermouse.fill", tint: .green) {
+        SettingsCard(
+            title: "Cuộn chuột ngoài mượt mà",
+            subtitle: "Khắc phục hiện tượng giật khi dùng chuột rời trên macOS",
+            icon: "computermouse.fill",
+            tint: .green
+        ) {
             Toggle("Bật cuộn mượt", isOn: Binding(
                 get: { manager.isEnabled }, set: { manager.setEnabled($0) }
             ))
         } content: {
-            Toggle("Đảo chiều cuộn chuột ngoài", isOn: Binding(
+            Toggle("Đảo chiều cuộn chuột ngoài (tự nhiên)", isOn: Binding(
                 get: { manager.isReverseScrollingEnabled },
                 set: { manager.setReverseScrollingEnabled($0) }
             ))
-            .font(.system(size: 10))
+            .font(.system(size: 11.5))
+            .toggleStyle(.checkbox)
 
             if manager.isEnabled {
-                ScrollSlider(title: "Tốc độ", value: Binding(
-                    get: { manager.speed }, set: { manager.setSpeed($0) }
-                ), range: 0.5...3, step: 0.1, display: String(format: "%.1fx", manager.speed))
-                ScrollSlider(title: "Độ mượt", value: Binding(
-                    get: { manager.smoothness }, set: { manager.setSmoothness($0) }
-                ), range: 0...1, step: 0.05, display: "\(Int(manager.smoothness * 100))%")
-                Text("Hỗ trợ cuộn dọc, cuộn ngang và Shift + bánh xe")
-                    .font(.system(size: 10))
+                Divider().opacity(0.15)
+
+                ScrollSlider(
+                    title: "Tốc độ cuộn",
+                    value: Binding(
+                        get: { manager.speed }, set: { manager.setSpeed($0) }
+                    ),
+                    range: 0.5...3,
+                    step: 0.1,
+                    display: String(format: "%.1fx", manager.speed)
+                )
+
+                ScrollSlider(
+                    title: "Độ mượt mà",
+                    value: Binding(
+                        get: { manager.smoothness }, set: { manager.setSmoothness($0) }
+                    ),
+                    range: 0...1,
+                    step: 0.05,
+                    display: "\(Int(manager.smoothness * 100))%"
+                )
+
+                Text("Hỗ trợ bánh xe cuộn dọc, ngang và giữ Shift để cuộn ngang.")
+                    .font(.system(size: 10.5))
                     .foregroundStyle(.secondary)
             }
         }
     }
 }
+
+// MARK: - Reusable Settings Card Container
 
 private struct SettingsCard<Control: View, Content: View>: View {
     let title: String
@@ -264,34 +352,43 @@ private struct SettingsCard<Control: View, Content: View>: View {
     @ViewBuilder let content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 11) {
             HStack(alignment: .center, spacing: 10) {
                 Image(systemName: icon)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(tint)
-                    .frame(width: 30, height: 30)
-                    .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 9))
+                    .frame(width: 32, height: 32)
+                    .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(.primary)
                     Text(subtitle)
-                        .font(.system(size: 10))
+                        .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+
                 Spacer(minLength: 0)
             }
+
             control
-                .font(.system(size: 10, weight: .medium))
+                .font(.system(size: 11.5, weight: .medium))
                 .toggleStyle(.switch)
                 .controlSize(.small)
-            Divider()
-            content
+
+            if Content.self != EmptyView.self {
+                Divider().opacity(0.15)
+                content
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .macMateCard(padding: 13)
+        .macMateCard(padding: 14)
     }
 }
+
+// MARK: - Shortcut Binding Row Component
 
 private struct ShortcutBindingRow: View {
     let action: ShortcutAction
@@ -308,17 +405,20 @@ private struct ShortcutBindingRow: View {
                     _ = shortcuts.setBinding(updated, for: action)
                 }
             ))
-            .font(.system(size: 10))
+            .font(.system(size: 11.5))
             .toggleStyle(.switch)
             .controlSize(.mini)
             .lineLimit(2)
             .frame(maxWidth: .infinity, alignment: .leading)
+
             KeyRecorderView(binding: binding) { shortcuts.setBinding($0, for: action) }
                 .disabled(!binding.isEnabled)
         }
         .frame(minHeight: 28)
     }
 }
+
+// MARK: - Settings Chip Component
 
 private struct SettingsChip: View {
     let title: String
@@ -328,16 +428,19 @@ private struct SettingsChip: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 10, weight: selected ? .semibold : .regular))
-                .frame(minWidth: 36)
-                .padding(.horizontal, 7)
-                .padding(.vertical, 5)
+                .font(.system(size: 10.5, weight: selected ? .bold : .medium))
+                .padding(.horizontal, 9)
+                .padding(.vertical, 4.5)
                 .foregroundStyle(selected ? Color.white : Color.primary)
-                .background(selected ? Color.accentColor : Color.primary.opacity(0.07), in: Capsule())
+                .background(
+                    Capsule().fill(selected ? Color.accentColor : Color.primary.opacity(0.06))
+                )
         }
         .buttonStyle(.plain)
     }
 }
+
+// MARK: - Shortcut Hint Component
 
 private struct ShortcutHint: View {
     let key: String
@@ -346,16 +449,25 @@ private struct ShortcutHint: View {
     var body: some View {
         HStack(spacing: 4) {
             Text(key)
-                .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                .padding(.horizontal, 5)
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .padding(.horizontal, 6)
                 .padding(.vertical, 3)
-                .background(Color.primary.opacity(0.07), in: RoundedRectangle(cornerRadius: 5))
+                .background(
+                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        .fill(Color.primary.opacity(0.08))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        .stroke(Color.primary.opacity(0.1), lineWidth: 0.5)
+                )
             Text(label)
-                .font(.system(size: 10))
+                .font(.system(size: 10.5))
                 .foregroundStyle(.secondary)
         }
     }
 }
+
+// MARK: - Scroll Slider Component
 
 private struct ScrollSlider: View {
     let title: String
@@ -367,13 +479,13 @@ private struct ScrollSlider: View {
     var body: some View {
         HStack(spacing: 8) {
             Text(title)
-                .font(.system(size: 10, weight: .medium))
-                .frame(width: 54, alignment: .leading)
+                .font(.system(size: 11, weight: .medium))
+                .frame(width: 80, alignment: .leading)
             Slider(value: $value, in: range, step: step)
                 .controlSize(.small)
             Text(display)
-                .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                .frame(width: 38, alignment: .trailing)
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .frame(width: 44, alignment: .trailing)
         }
     }
 }

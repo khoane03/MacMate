@@ -247,11 +247,6 @@ private func eventTapCallback(
                 case .movePreviousDisplay:
                     DispatchQueue.main.async { WindowSnapManager.shared.moveActiveWindowToDisplay(isNext: false) }
                     return nil
-                case .toggleMouseChord:
-                    DispatchQueue.main.async {
-                        ShortcutManager.shared.isMouseChordEnabled.toggle()
-                    }
-                    return nil
                 case .altTabNext, .altTabPrevious, .clipboardHUD:
                     break
                 }

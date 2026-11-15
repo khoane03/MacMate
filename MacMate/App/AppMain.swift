@@ -21,7 +21,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Initialize Popover
         let pop = NSPopover()
-        pop.contentSize = NSSize(width: 380, height: 570)
+        pop.contentSize = NSSize(width: 390, height: 570)
         pop.behavior = .transient
         let hostingController = NSHostingController(rootView: MainView())
         hostingController.sizingOptions = []
@@ -62,7 +62,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// `MACMATE_PREVIEW_OUT=/path.png` render thẳng ra PNG (không cần quyền chụp màn hình).
     private func showPreviewWindow() {
         let view = MainView()
-            .frame(width: 380, height: 570)
+            .frame(width: 390, height: 570)
 
         if let out = ProcessInfo.processInfo.environment["MACMATE_PREVIEW_OUT"], !out.isEmpty {
             let renderer = ImageRenderer(content: view)
@@ -78,7 +78,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 380, height: 570),
+            contentRect: NSRect(x: 0, y: 0, width: 390, height: 570),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
