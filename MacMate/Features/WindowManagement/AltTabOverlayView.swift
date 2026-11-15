@@ -21,14 +21,26 @@ public struct AltTabOverlayView: View {
 
     public var body: some View {
         ZStack {
-            // Native HUD Glass Background
+            // Native Frosted Glass Background
             VisualEffectBackground(material: .hudWindow, blendingMode: .behindWindow)
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(Color(nsColor: .windowBackgroundColor).opacity(0.35))
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(Color.primary.opacity(0.12), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(0.24),
+                                    Color.white.opacity(0.08),
+                                    Color.primary.opacity(0.06)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
                 )
-                .shadow(color: Color.black.opacity(0.5), radius: 24, y: 8)
+                .shadow(color: Color.black.opacity(0.28), radius: 24, y: 10)
 
             VStack(spacing: 8) {
                 // 1. Top Minimal Status Header

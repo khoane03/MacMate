@@ -214,6 +214,9 @@ public class ClipboardManager: ObservableObject {
     private var pollTimer: Timer?
     private var previousApp: NSRunningApplication?
     private var hudPanel: NSPanel?
+    private var clickOutsideGlobalMonitor: Any?
+    private var clickOutsideLocalMonitor: Any?
+    private var resignKeyObserver: NSObjectProtocol?
     private let storageURL: URL
     private let thumbnailDirectoryURL: URL
     private let storageQueue = DispatchQueue(label: "com.macmate.clipboard-storage", qos: .utility)
@@ -790,30 +793,89 @@ public class ClipboardManager: ObservableObject {
             let mouseLoc = NSEvent.mouseLocation
             let screen = NSScreen.screens.first(where: { NSPointInRect(mouseLoc, $0.frame) }) ?? NSScreen.main ?? NSScreen.screens[0]
 
-            let panelWidth: CGFloat = 430
-            let panelHeight: CGFloat = 520
+            let panelWidth: CGFloat = 440
+            let panelHeight: CGFloat = 540
 
             // Center horizontally on screen, slightly above center vertically
             let x = screen.visibleFrame.midX - (panelWidth / 2)
-            let y = screen.visibleFrame.midY - (panelHeight / 2) + 40
+            let y = screen.visibleFrame.midY - (panelHeight / 2) + 30
 
             panel.setFrame(NSRect(x: x, y: y, width: panelWidth, height: panelHeight), display: true)
             panel.makeKeyAndOrderFront(nil)
             NSApplication.shared.activate(ignoringOtherApps: true)
+
+            setupClickOutsideDismissal()
         }
     }
 
     public func hideHUD() {
         guard isHUDVisible else { return }
+        removeClickOutsideDismissal()
         self.isHUDVisible = false
         gIsClipboardHUDVisible = false
         hudPanel?.orderOut(nil)
     }
 
+    private func setupClickOutsideDismissal() {
+        removeClickOutsideDismissal()
+
+        // 1. Global Monitor: Nhấp chuột bên ngoài ứng dụng (bất kỳ đâu trên màn hình ngoài HUD)
+        clickOutsideGlobalMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
+            guard let self = self, self.isHUDVisible, let panel = self.hudPanel else { return }
+            let clickLoc = NSEvent.mouseLocation
+            if !panel.frame.contains(clickLoc) {
+                Task { @MainActor in
+                    self.hideHUD()
+                }
+            }
+        }
+
+        // 2. Local Monitor: Nhấp chuột trong app nhưng ngoài khung HUD (ví dụ menu bar item)
+        clickOutsideLocalMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
+            guard let self = self, self.isHUDVisible, let panel = self.hudPanel else { return event }
+            let clickLoc = NSEvent.mouseLocation
+            if !panel.frame.contains(clickLoc) {
+                Task { @MainActor in
+                    self.hideHUD()
+                }
+            }
+            return event
+        }
+
+        // 3. Observer: Đóng HUD khi window mất trạng thái Key Focus
+        if let panel = hudPanel {
+            resignKeyObserver = NotificationCenter.default.addObserver(
+                forName: NSWindow.didResignKeyNotification,
+                object: panel,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    guard let self = self, self.isHUDVisible else { return }
+                    self.hideHUD()
+                }
+            }
+        }
+    }
+
+    private func removeClickOutsideDismissal() {
+        if let monitor = clickOutsideGlobalMonitor {
+            NSEvent.removeMonitor(monitor)
+            clickOutsideGlobalMonitor = nil
+        }
+        if let monitor = clickOutsideLocalMonitor {
+            NSEvent.removeMonitor(monitor)
+            clickOutsideLocalMonitor = nil
+        }
+        if let observer = resignKeyObserver {
+            NotificationCenter.default.removeObserver(observer)
+            resignKeyObserver = nil
+        }
+    }
+
     private func createHUDPanel() {
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 430, height: 520),
-            styleMask: [.nonactivatingPanel, .borderless],
+            contentRect: NSRect(x: 0, y: 0, width: 440, height: 540),
+            styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
@@ -824,7 +886,7 @@ public class ClipboardManager: ObservableObject {
         panel.titlebarAppearsTransparent = true
         panel.isMovableByWindowBackground = true
         panel.backgroundColor = .clear
-        panel.hasShadow = false
+        panel.hasShadow = true
         panel.isOpaque = false
 
         let hosting = NSHostingView(rootView: ClipboardOverlayView(manager: self))
